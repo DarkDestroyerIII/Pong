@@ -4,6 +4,7 @@
 #include <ctime>   // For time()
 #include <iostream>
 #include <thread>
+#include <algorithm> 
 
 using namespace std;
 
@@ -22,9 +23,10 @@ int score1 = 0, score2 = 0;
 // Ball direction
 int ballDirX = -1, ballDirY = -1;
 
+
 void Draw() {
   // cout << "\x1B[?25l\x1B[2J\x1B[H"; // Clear the screen
-  cout << "\r\x1B[?25l\x1B[H"; // hides cursor and moves it back to home.
+  cout << "\x1B[?25l\x1B[H"; // hides cursor and moves it back to home.
   for (int i = 0; i < width + 2; i++)
     cout << "#";
   cout << endl;
@@ -57,6 +59,9 @@ void Draw() {
 void Logic() {
   ballX += ballDirX;
   ballY += ballDirY;
+  //ballX = clamp(ballX, 2, width -3);
+  //ballY = clamp(ballY,0, height -1);
+  srand(time(NULL));
   int randomOffset = rand() % 3 - 1; //-1,0,1
   // Ball collision with top and bottom
   if (ballY <= 0 || ballY >= height - 1)
@@ -67,29 +72,36 @@ void Logic() {
   else if (ballY >= height - 1)
     ballY = height - 1;
 
+  int paddleMidpoint = paddleSize / 2;
+
   // Ball collision with left paddle
-  if (ballX == 1 && ballY >= paddle1Y && ballY <= paddle1Y + (paddleSize -1)) {
+  if ((ballX == 2) && ballX > 0 && ballY >= paddle1Y && ballY <= paddle1Y + (paddleSize -1)) {
+    if(ballX <=2) ballX = 2;
     ballDirX = -ballDirX; // Change horizontal direction
     // Adjust ballDirY based on where it hits the paddle
     int hitPos = ballY - paddle1Y;
-    int paddleMidpoint = paddleSize / 2;
     int adjustment =  ballDirY = hitPos - paddleMidpoint; // -mid to +mid range, sharper angles for edges
     ballDirY = adjustment * 2 / paddleMidpoint;
+
+    if (ballY == paddle1Y + paddleMidpoint) ballDirY = randomOffset;
   }
 
   // Ball collision with right paddle
-  if (ballX == width - 2 && ballY >= paddle2Y && ballY <= paddle2Y + (paddleSize - 1)) {
+  if ((ballX == width - 3) && ballX < width - 1 && ballY >= paddle2Y && ballY <= paddle2Y + (paddleSize - 1)) {
+    if(ballX >= width - 3) ballX = width - 3;
     ballDirX = -ballDirX; // Change horizontal direction
     // Adjust ballDirY based on where it hits the paddle
     int hitPos = ballY - paddle2Y;
-    ballDirY = hitPos - 2; // -2 to +2 range, sharper angles for edges
+    //ballDirY = hitPos - 2; // -2 to +2 range, sharper angles for edges
+    
+    int adjustment =  ballDirY = hitPos - paddleMidpoint; // -mid to +mid range, sharper angles for edges
+    ballDirY = adjustment * 2 / paddleMidpoint;
+    if (ballY == paddle2Y + paddleMidpoint) ballDirY = randomOffset;
   }
-  if (ballDirY == 0) {
-    ballDirY = randomOffset;
-  }
+  
 
   // Scoring
-  if (ballX == 0 || ballX == width - 1) {
+  if (ballX <= 0 || ballX >= width - 1) {
     if (ballX == 0)
       score2++;
     else
@@ -145,6 +157,7 @@ void Logic() {
 // }
 
 int PredictBallPosition(int paddleSide) {
+  srand(time(NULL));
   int randomOffset = rand() % 3 - 1; // -1, 0, or 1
   int predictedY = ballY;
   int ballDirYCopy = ballDirY; // Copy of the ball's Y direction for prediction
@@ -152,11 +165,10 @@ int PredictBallPosition(int paddleSide) {
   int steps; // Steps needed for the ball to reach the paddle
   if (paddleSide == 1) {
     // Calculate steps for the ball to reach the left paddle
-    steps = abs(ballX - 2); // Assuming the left paddle is at x=1
+    steps = abs(ballX - 1); // Assuming the left paddle is at x=1
   } else {
     // Calculate steps for the ball to reach the right paddle
-    steps =
-        abs(ballX - (width - 3)); // Assuming the right paddle is at x=width-2
+    steps = abs(ballX - (width - 3)); // Assuming the right paddle is at x=width-2
   }
 
   while (steps > 0) {
@@ -164,6 +176,7 @@ int PredictBallPosition(int paddleSide) {
 
     // If the prediction goes out of bounds, invert the direction
     if (predictedY <= 0 || predictedY >= height - 1) {
+      
       ballDirYCopy = -ballDirYCopy;
       predictedY += ballDirYCopy; // Adjust after bounce
     }
@@ -180,8 +193,8 @@ void AutoMovePaddles() {
   int targetY2 = PredictBallPosition(2); // Prediction for paddle 2
 
   // Randomly decide whether to move, simulating hesitation or error
-  bool movePaddle1 = rand() % 2; // 50% chance to move
-  bool movePaddle2 = rand() % 2; // 50% chance to move
+  bool movePaddle1 = rand() % 4; // 75% chance to move
+  bool movePaddle2 = rand() % 4; // 75% chance to move
 
   // Move paddle 1 (Left) towards the predicted position of the ball
   if (movePaddle1) {
@@ -203,13 +216,20 @@ void AutoMovePaddles() {
 }
 
 int main() {
+  srand (time(NULL));
   while (true) {
-    AutoMovePaddles();
     Draw();
-    // Input();
+    AutoMovePaddles();
     Logic();
+     //Input();
     std::this_thread::sleep_for(
         std::chrono::milliseconds(50)); // Slow down game to a reasonable speed
+
+
+    if(score1 == 10 || score2 == 10){
+      cout << endl << "Player " << ((score1 > score2) ? "1" : "2") << " wins!" << endl;
+      break;
+    }
   }
   return 0;
 }
